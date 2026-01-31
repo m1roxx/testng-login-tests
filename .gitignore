@@ -54,6 +54,8 @@ ehthumbs.db
 Thumbs.db
 *~
 
+.env
+
 # Temporary files
 *.tmp
 *.bak

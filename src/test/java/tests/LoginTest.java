@@ -12,14 +12,16 @@ import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
 import org.testng.ITestResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 import org.testng.Assert;
+import utils.DriverFactory;
+import utils.ExcelReader;
 import utils.ExtentReportManager;
 
 import java.io.File;
@@ -35,17 +37,15 @@ public class LoginTest {
     private ExtentTest extentTest;
     private WebDriver driver;
     private static final String BASE_URL = "https://practicetestautomation.com/practice-test-login/";
-    private static final String VALID_USERNAME = "student";
-    private static final String VALID_PASSWORD = "Password123";
 
     @BeforeClass
     public void setUp() {
-        logger.info("Initializing Chrome WebDriver");
+        logger.info("Initializing WebDriver");
         extentTest = extent.createTest("Login Test");
-        driver = new ChromeDriver();
+        driver = DriverFactory.createDriver();
         driver.manage().window().maximize();
-        logger.info("Chrome WebDriver initialized and window maximized");
-        extentTest.log(Status.INFO, "Chrome WebDriver initialized and window maximized");
+        logger.info("WebDriver initialized and window maximized");
+        extentTest.log(Status.INFO, "WebDriver initialized and window maximized");
     }
 
     @BeforeMethod
@@ -57,36 +57,52 @@ public class LoginTest {
         extentTest.log(Status.INFO, "Login page opened successfully");
     }
 
-    @Test
-    public void testSuccessfulLogin() {
-        try {
-            logger.info("Starting login test");
-            extentTest.log(Status.INFO, "Starting login test");
+    @DataProvider(name = "loginData")
+    public Object[][] getLoginData() throws IOException {
+        return ExcelReader.readSheet("testdata.xlsx", "Login");
+    }
 
-            logger.info("Entering username: {}", VALID_USERNAME);
-            extentTest.log(Status.INFO, "Entering username: " + VALID_USERNAME);
+    @Test(dataProvider = "loginData")
+    public void testLogin(String username, String password, String expectedResult) {
+        try {
+            logger.info("Starting login test for user: {}", username);
+            extentTest.log(Status.INFO, "Starting login test for user: " + username);
+
+            logger.info("Entering username: {}", username);
+            extentTest.log(Status.INFO, "Entering username: " + username);
             WebElement usernameField = driver.findElement(By.id("username"));
-            usernameField.sendKeys(VALID_USERNAME);
+            usernameField.sendKeys(username);
 
             logger.info("Entering password");
             extentTest.log(Status.INFO, "Entering password");
             WebElement passwordField = driver.findElement(By.id("password"));
-            passwordField.sendKeys(VALID_PASSWORD);
+            passwordField.sendKeys(password);
 
             logger.info("Clicking login button");
             extentTest.log(Status.INFO, "Clicking login button");
             WebElement loginButton = driver.findElement(By.id("submit"));
             loginButton.click();
 
-            logger.info("Verifying login success");
-            extentTest.log(Status.INFO, "Verifying login success");
             String currentUrl = driver.getCurrentUrl();
-            Assert.assertTrue(currentUrl.contains("logged-in-successfully"),
-                    "URL should contain 'logged-in-successfully'");
+            boolean isSuccess = "success".equalsIgnoreCase(expectedResult.trim());
 
-            logger.info("Login test completed successfully");
-            extentTest.log(Status.PASS,
-                    MarkupHelper.createLabel("Login test completed successfully", ExtentColor.GREEN));
+            if (isSuccess) {
+                logger.info("Verifying login success");
+                extentTest.log(Status.INFO, "Verifying login success");
+                Assert.assertTrue(currentUrl.contains("logged-in-successfully"),
+                        "URL should contain 'logged-in-successfully'");
+                logger.info("Login test completed successfully");
+                extentTest.log(Status.PASS,
+                        MarkupHelper.createLabel("Login test completed successfully", ExtentColor.GREEN));
+            } else {
+                logger.info("Verifying login failure");
+                extentTest.log(Status.INFO, "Verifying login failure");
+                Assert.assertFalse(currentUrl.contains("logged-in-successfully"),
+                        "URL should not contain 'logged-in-successfully' for failed login");
+                logger.info("Login failure verified as expected");
+                extentTest.log(Status.PASS,
+                        MarkupHelper.createLabel("Login failure verified as expected", ExtentColor.GREEN));
+            }
         } catch (Exception e) {
             logger.error("Error occurred during login test: {}", e.getMessage(), e);
             extentTest.log(Status.FAIL, "Test failed: " + e.getMessage());
